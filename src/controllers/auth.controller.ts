@@ -19,3 +19,13 @@ export const login = async (req: FastifyRequest, reply: FastifyReply) => {
     reply.status(400).send({ message: err.message });
   }
 };
+
+export const verifyEmail = async (req: FastifyRequest, reply: FastifyReply) => {
+  try {
+    const { email, code } = req.body as any;
+    const result = await AuthService.verifyEmail(email, code);
+    reply.send(result);
+  } catch (err: any) {
+    reply.status(400).send({ message: err.message });
+  }
+};

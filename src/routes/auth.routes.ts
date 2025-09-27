@@ -21,7 +21,7 @@ export default async function authRoutes(app: FastifyInstance) {
         200: {
           type: "object",
           properties: {
-            token: { type: "string" },
+            message: { type: "string" },
           },
         },
       },
@@ -50,5 +50,28 @@ export default async function authRoutes(app: FastifyInstance) {
       },
     },
     handler: AuthController.login,
+  });
+
+  app.post("/auth/verify-email", {
+    schema: {
+      tags: ["Auth"],
+      body: {
+        type: "object",
+        required: ["email", "code"],
+        properties: {
+          email: { type: "string", format: "email" },
+          code: { type: "string" },
+        },
+      },
+      response: {
+        200: {
+          type: "object",
+          properties: {
+            message: { type: "string" },
+          },
+        },
+      },
+    },
+    handler: AuthController.verifyEmail,
   });
 }

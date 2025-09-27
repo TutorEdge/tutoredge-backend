@@ -9,6 +9,9 @@ export interface IUser extends Document {
   phone: string;
   password: string;
   role: Role;
+  isVerified: boolean;
+  verificationCode?: string | null;
+  verificationExpiry?: Date | null;
 }
 
 const userSchema = new Schema<IUser>(
@@ -23,6 +26,9 @@ const userSchema = new Schema<IUser>(
       enum: ["Student", "Tutor", "Parent", "Admin"],
       default: "Student",
     },
+    isVerified: { type: Boolean, default: false },
+    verificationCode: { type: String, default: null },
+    verificationExpiry: { type: Date, default: null },
   },
   { timestamps: true }
 );
