@@ -1,54 +1,47 @@
-import Fastify from "fastify";
-import connectDB from "./config/db";
-import authRoutes from "./routes/auth.routes";
-import userRoutes from "./routes/user.routes";
+import fastify from "fastify";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
+import authRoutes from "./routes/auth.routes";
 
-const app = Fastify({ logger: true });
+const app = fastify({ logger: true });
 
-// DB connection
-connectDB();
-
-// Swagger setup
-app.register(swagger, {
-  swagger: {
-    info: {
-      title: "Fastify API",
-      description: "API documentation for Auth + User Service",
-      version: "1.0.0",
-    },
-    host: "localhost:3000",
-    schemes: ["http"],
-    consumes: ["application/json"],
-    produces: ["application/json"],
-    securityDefinitions: {
-      bearerAuth: {
-        type: "apiKey",
-        name: "Authorization",
-        in: "header",
-        description: "Enter JWT token as: Bearer <token>",
+async function buildApp() {
+  // Swagger setup
+  await app.register(swagger, {
+    openapi: {
+      info: {
+        title: "TutorEdge API",
+        description: "API documentation for TutorEdge platform",
+        version: "1.0.0"
       },
-    },
-  },
-});
-
-app.register(swaggerUi, {
-  routePrefix: "/docs",
-  uiConfig: {
-    docExpansion: "list",
-    deepLinking: false,
-  },
-});
-
-// Routes
-app.register(async (instance) => {
-  instance.register(authRoutes);
-  instance.register(userRoutes);
-
-  instance.get("/health", async () => {
-    return { status: "ok" };
+      servers: [
+        { url: "http://localhost:3000/api/v1", description: "Development" },
+      ],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: "http",
+            scheme: "bearer",
+            bearerFormat: "JWT"
+          }
+        }
+      },
+      security: [{ bearerAuth: [] }]
+    }
   });
-}, { prefix: "/v1" });
 
-export default app;
+  await app.register(swaggerUi, {
+    routePrefix: "/docs",
+    uiConfig: {
+      docExpansion: "list",
+      deepLinking: true
+    }
+  });
+
+  // Routes
+  app.register(authRoutes, { prefix: "/api/v1" });
+
+  return app;
+}
+
+export default buildApp;
