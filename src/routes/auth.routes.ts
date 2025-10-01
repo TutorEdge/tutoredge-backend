@@ -1,54 +1,136 @@
 import { FastifyInstance } from "fastify";
-import * as AuthController from "../controllers/auth.controller";
+import { AuthController } from "../controllers/auth.controller";
 
-export default async function authRoutes(app: FastifyInstance) {
-  app.post("/auth/signup", {
-    schema: {
-      tags: ["Auth"],
-      body: {
-        type: "object",
-        required: ["firstName", "lastName", "email", "phone", "password", "confirmPassword"],
-        properties: {
-          firstName: { type: "string" },
-          lastName: { type: "string" },
-          email: { type: "string", format: "email" },
-          phone: { type: "string" },
-          password: { type: "string" },
-          confirmPassword: { type: "string" },
-        },
-      },
-      response: {
-        200: {
-          type: "object",
-          properties: {
-            token: { type: "string" },
-          },
-        },
-      },
-    },
-    handler: AuthController.signup,
-  });
+const authController = new AuthController();
 
-  app.post("/auth/login", {
-    schema: {
-      tags: ["Auth"],
-      body: {
-        type: "object",
-        required: ["email", "password"],
-        properties: {
-          email: { type: "string", format: "email" },
-          password: { type: "string" },
-        },
-      },
-      response: {
-        200: {
+export default async function authRoutes(fastify: FastifyInstance) {
+  // Admin Login
+  fastify.post(
+    "/auth/admin/login",
+    {
+      schema: {
+        tags: ["Admin"],
+        summary: "Admin login",
+        body: {
           type: "object",
+          required: ["username", "password"],
           properties: {
-            token: { type: "string" },
-          },
+            username: { type: "string" },
+            password: { type: "string" }
+          }
         },
-      },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              token: { type: "string" },
+              user: { type: "object" }
+            }
+          }
+        }
+      }
     },
-    handler: AuthController.login,
-  });
+    authController.adminLogin
+  );
+
+  // Parent Signup
+  fastify.post(
+    "/auth/parent/signup",
+    {
+      schema: {
+        tags: ["Parent"],
+        summary: "Parent signup",
+        body: {
+          type: "object",
+          required: ["fullName", "email", "phone", "password"],
+          properties: {
+            fullName: { type: "string" },
+            email: { type: "string" },
+            phone: { type: "string" },
+            password: { type: "string" }
+          }
+        }
+      }
+    },
+    authController.parentSignup
+  );
+
+  // Parent Login
+  fastify.post(
+    "/auth/parent/login",
+    {
+      schema: {
+        tags: ["Parent"],
+        summary: "Parent login",
+        body: {
+          type: "object",
+          required: ["email", "password"],
+          properties: {
+            email: { type: "string" },
+            password: { type: "string" }
+          }
+        }
+      }
+    },
+    authController.parentLogin
+  );
+
+  // Tutor Signup
+  fastify.post(
+    "/auth/tutor/signup",
+    {
+      schema: {
+        tags: ["Tutor"],
+        summary: "Tutor signup",
+        body: {
+          type: "object",
+          required: [
+            "fullName",
+            "email",
+            "phone",
+            "password",
+            "subjects",
+            "languages",
+            "classesTaught",
+            "qualification",
+            "college",
+            "yearsOfExperience"
+          ],
+          properties: {
+            fullName: { type: "string" },
+            email: { type: "string" },
+            phone: { type: "string" },
+            password: { type: "string" },
+            subjects: { type: "array", items: { type: "string" } },
+            languages: { type: "array", items: { type: "string" } },
+            classesTaught: { type: "array", items: { type: "string" } },
+            qualification: { type: "string" },
+            college: { type: "string" },
+            yearsOfExperience: { type: "number" }
+          }
+        }
+      }
+    },
+    authController.tutorSignup
+  );
+
+  // Tutor Login
+  fastify.post(
+    "/auth/tutor/login",
+    {
+      schema: {
+        tags: ["Tutor"],
+        summary: "Tutor login",
+        body: {
+          type: "object",
+          required: ["email", "password"],
+          properties: {
+            email: { type: "string" },
+            password: { type: "string" }
+          }
+        }
+      }
+    },
+    authController.tutorLogin
+  );
 }
