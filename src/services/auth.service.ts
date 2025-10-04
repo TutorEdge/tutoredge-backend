@@ -84,4 +84,37 @@ export class AuthService {
     const token = signJwt({ id: user._id, role: user.role });
     return { token, user };
   }
+
+
+  async getTutorApplications(status?: string, limit: number = 5) {
+    const validStatuses = ["pending", "approved", "rejected"];
+    if (status && !validStatuses.includes(status)) {
+      throw new Error("Invalid status");
+    }
+
+    const limitValue = Number(limit) || 5;
+    if (!Number.isInteger(limitValue) || limitValue <= 0) {
+      throw new Error("Invalid limit");
+    }
+
+    const query: any = { role: "tutor" };
+    if (status) query.status = status;
+
+    const tutors = await User.find(query)
+      .sort({ createdAt: -1 }) // latest first
+      .limit(limitValue)
+      .select("fullName email status createdAt")
+      .lean();
+
+    return tutors.map((t: any) => ({
+      name: t.fullName,
+      email: t.email,
+      status: t.status,
+      appliedDate:
+        t.createdAt instanceof Date
+          ? t.createdAt.toISOString()
+          : new Date(t.createdAt).toISOString()
+    }));
+  }
+
 }
