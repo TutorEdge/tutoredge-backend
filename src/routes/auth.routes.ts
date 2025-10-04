@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
 import { AuthController } from "../controllers/auth.controller";
+import { authMiddleware, roleMiddleware } from "../middlewares/auth";
 
 const authController = new AuthController();
 
@@ -132,5 +133,45 @@ export default async function authRoutes(fastify: FastifyInstance) {
       }
     },
     authController.tutorLogin
+  );
+
+  // tutor-applications
+  fastify.get(
+    "/auth/tutor-applications",
+    {
+      preHandler: [authMiddleware, roleMiddleware(["admin"])],
+      schema: {
+        tags: ["Tutor"],
+        summary: "Fetch recent tutor applications",
+        querystring: {
+          type: "object",
+          properties: {
+            limit: { type: "integer", default: 5, minimum: 1 },
+            status: {
+              type: "string",
+              enum: ["pending", "approved", "rejected"]
+            }
+          }
+        },
+        response: {
+          200: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                email: { type: "string" },
+                status: {
+                  type: "string",
+                  enum: ["pending", "approved", "rejected"]
+                },
+                appliedDate: { type: "string", format: "date-time" }
+              }
+            }
+          }
+        }
+      }
+    },
+    authController.getTutorApplications.bind(authController)
   );
 }
