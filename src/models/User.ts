@@ -2,6 +2,8 @@ import { Schema, model, Document } from "mongoose";
 
 export type UserRole = "admin" | "parent" | "tutor";
 export type TutorStatus = "pending" | "phone_verified" | "approved" | "rejected";
+export type TeachingMode = "online" | "offline" | "hybrid";
+export type Availability = "weekdays" | "weekends" | "flexible";
 
 export interface IUser extends Document {
   role: UserRole;
@@ -21,6 +23,12 @@ export interface IUser extends Document {
   college?: string;
   yearsOfExperience?: number;
   status?: TutorStatus; // only for tutors
+
+  price?: number; // per month / per hour (decide one unit)
+  teachingMode?: TeachingMode;
+  availability?: Availability;
+  rating?: number; // 0-5
+  testimonial?: string;
 
   createdAt?: Date;
   updatedAt?: Date;
@@ -67,12 +75,25 @@ const UserSchema = new Schema<IUser>(
       type: String,
       enum: ["pending", "phone_verified", "approved", "rejected"],
       default: "pending"
-    }
+    },
+
+    price: { type: Number, default: 0 }, // numeric price
+    teachingMode: {
+      type: String,
+      enum: ["online", "offline", "hybrid"]
+    },
+    availability: {
+      type: String,
+      enum: ["weekdays", "weekends", "flexible"]
+    },
+    rating: { type: Number, default: 0 }, // average rating
+    testimonial: { type: String, default: "" }
+
   },
   { timestamps: true }
 );
 
-// 🔒 Role-based validation
+//  Role-based validation
 UserSchema.pre("validate", function (next) {
   if (this.role === "admin") {
     if (!this.username) return next(new Error("Admin must have a username"));
@@ -102,5 +123,10 @@ UserSchema.pre("validate", function (next) {
 
   next();
 });
+
+// Indexes for faster filtering
+UserSchema.index({ subjects: 1 });
+UserSchema.index({ price: 1 });
+UserSchema.index({ rating: -1 });
 
 export default model<IUser>("User", UserSchema);
