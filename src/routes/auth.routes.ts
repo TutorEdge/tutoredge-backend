@@ -174,4 +174,45 @@ export default async function authRoutes(fastify: FastifyInstance) {
     },
     authController.getTutorApplications.bind(authController)
   );
+
+  // Parent Request (Authenticated)
+fastify.post(
+  "/auth/parent/requests",
+  {
+    schema: {
+      tags: ["Parent"],
+      summary: "Submit tutoring request",
+      body: {
+        type: "object",
+        required: ["academicNeeds", "location", "urgency"],
+        properties: {
+          academicNeeds: { type: "array", items: { type: "string" } },
+          scheduling: { type: "array", items: { type: "string" } },
+          location: { type: "string" },
+          urgency: {
+            type: "string",
+            enum: ["within_24_hours", "within_3_days", "within_a_week"]
+          }
+        }
+      },
+      security: [{ bearerAuth: [] }]
+    },
+    preHandler: [async (req: any, reply) => {
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith("Bearer ")) {
+        return reply.status(401).send({ error: "Unauthorized" });
+      }
+      const token = authHeader.split(" ")[1];
+      const { verifyJwt } = await import("../utils/jwt");
+      try {
+        const decoded = verifyJwt(token);
+        req.user = decoded;
+      } catch {
+        return reply.status(401).send({ error: "Invalid token" });
+      }
+    }]
+  },
+  authController.createParentRequest
+);
+
 }

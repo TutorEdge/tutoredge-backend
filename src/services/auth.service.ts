@@ -2,6 +2,7 @@ import User, { IUser } from "../models/User";
 import { hashPassword, comparePassword } from "../utils/hash";
 import { signJwt } from "../utils/jwt";
 import { config } from "../config/env";
+import ParentRequest from "../models/ParentRequest";
 
 export class AuthService {
   // 🔹 Admin Login
@@ -115,6 +116,30 @@ export class AuthService {
           ? t.createdAt.toISOString()
           : new Date(t.createdAt).toISOString()
     }));
+  }
+
+  async createParentRequest(parentId: string, data: any) {
+    const { academicNeeds, scheduling, location, urgency } = data;
+
+    // validation
+    if (!academicNeeds || !Array.isArray(academicNeeds) || academicNeeds.length === 0) {
+      throw new Error("academicNeeds cannot be empty");
+    }
+
+    const validUrgencies = ["within_24_hours", "within_3_days", "within_a_week"];
+    if (!validUrgencies.includes(urgency)) {
+      throw new Error("Invalid urgency value");
+    }
+
+    const request = await ParentRequest.create({
+      parentId,
+      academicNeeds,
+      scheduling,
+      location,
+      urgency
+    });
+
+    return request;
   }
 
 }

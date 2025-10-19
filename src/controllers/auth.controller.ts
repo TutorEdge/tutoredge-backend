@@ -88,4 +88,23 @@ export class AuthController {
       return reply.status(500).send({ error: "Internal Server Error" });
     }
   }
+
+  async createParentRequest(req: FastifyRequest, reply: FastifyReply) {
+  try {
+    const user = (req as any).user;
+    if (!user || user.role !== "parent") {
+      return reply.status(401).send({ error: "Unauthorized" });
+    }
+
+    const result = await authService.createParentRequest(user.id, req.body as any);
+    return reply.code(201).send(result);
+  } catch (err: any) {
+    if (err.message.includes("Invalid") || err.message.includes("empty")) {
+      return reply.status(400).send({ error: err.message });
+    }
+    console.error("createParentRequest error:", err);
+    return reply.status(500).send({ error: "Internal Server Error" });
+  }
+}
+
 }
