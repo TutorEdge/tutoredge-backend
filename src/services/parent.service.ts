@@ -1,4 +1,5 @@
 import User from "../models/User";
+import ParentRequest from "../models/ParentRequest";
 
 export class ParentService {
   async searchTutors(filters: any) {
@@ -42,5 +43,71 @@ export class ParentService {
       .lean();
 
     return tutors;
+  }
+
+  async getParentRequests(params: any) {
+    const { type = "latest", status, subject } = params;
+    let limit = params.limit ? Number(params.limit) : 5;
+
+    if (isNaN(limit) || limit <= 0) {
+      throw new Error("Invalid limit value");
+    }
+
+    // validate type
+    if (!["latest", "all"].includes(type)) {
+      throw new Error("Invalid type; allowed values: latest, all");
+    }
+
+    // build base query
+    const query: any = {};
+
+    if (status) {
+      const validStatuses = ["pending", "assigned", "completed", "cancelled"];
+      if (!validStatuses.includes(status)) throw new Error("Invalid status value");
+      query.status = status;
+    }
+
+    if (subject) {
+      // academicNeeds is array of strings — use regex to match subject text-insensitive
+      query.academicNeeds = { $elemMatch: { $regex: new RegExp(subject, "i") } };
+    }
+
+    const mongoQuery = ParentRequest.find(query).sort({ createdAt: -1 });
+
+    if (type === "latest") {
+      mongoQuery.limit(limit);
+    } else {
+      // type === 'all' -> optional limit - allow large but set a safe maximum cap (e.g. 500)
+      const maxCap = 500;
+      if (limit > maxCap) limit = maxCap;
+      mongoQuery.limit(limit);
+    }
+
+    // select fields to return. You can expand as needed.
+    const requests = await mongoQuery
+      .select("parentId academicNeeds scheduling location urgency status createdAt")
+      .lean();
+
+    // Optionally enrich parent info (name, email) — do a small lookup
+    const parentIds = Array.from(new Set(requests.map((r: any) => r.parentId))).filter(Boolean);
+    const parents = await User.find({ _id: { $in: parentIds } })
+      .select("fullName email phone")
+      .lean();
+
+    const parentMap: Record<string, any> = {};
+    parents.forEach((p: any) => (parentMap[String(p._id)] = p));
+
+    // format response
+    return requests.map((r: any) => ({
+      id: r._id,
+      parentId: r.parentId,
+      parent: parentMap[r.parentId] || null,
+      academicNeeds: r.academicNeeds,
+      scheduling: r.scheduling,
+      location: r.location,
+      urgency: r.urgency,
+      status: r.status,
+      createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : new Date(r.createdAt).toISOString()
+    }));
   }
 }
