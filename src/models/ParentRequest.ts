@@ -6,6 +6,7 @@ export interface IParentRequest extends Document {
   scheduling: string[];
   location: string;
   urgency: "within_24_hours" | "within_3_days" | "within_a_week";
+  status?: "pending" | "assigned" | "completed" | "cancelled";
   createdAt?: Date;
 }
 
@@ -19,9 +20,18 @@ const ParentRequestSchema = new Schema<IParentRequest>(
       type: String,
       enum: ["within_24_hours", "within_3_days", "within_a_week"],
       required: true
+    },
+    status: {
+      type: String,
+      enum: ["pending", "assigned", "completed", "cancelled"],
+      default: "pending"
     }
   },
   { timestamps: true }
 );
+
+ParentRequestSchema.index({ status: 1 });
+ParentRequestSchema.index({ academicNeeds: 1 });
+ParentRequestSchema.index({ createdAt: -1 });
 
 export default model<IParentRequest>("ParentRequest", ParentRequestSchema);
