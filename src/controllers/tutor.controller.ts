@@ -135,4 +135,69 @@ export class TutorController {
       return reply.status(500).send({ error: 'Internal Server Error' });
     }
   }
+
+  //Quiz
+  async createQuiz(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const body = req.body as any;
+
+      const { title, subject, class_grade, description, questions } = body;
+
+      // Validate required
+      if (!title || !subject || !class_grade || !questions) {
+        return reply.status(400).send({ error: "Missing required fields: title, subject, class_grade, questions" });
+      }
+
+      if (!Array.isArray(questions) || questions.length === 0) {
+        return reply.status(400).send({ error: "questions must be a non-empty array" });
+      }
+
+      // Validate each question
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        if (!q || typeof q.question !== "string" || !Array.isArray(q.options) || q.options.length < 2 || typeof q.correct_answer !== "string") {
+          return reply.status(400).send({ error: `Invalid question at index ${i}` });
+        }
+        // correct_answer must be one of options
+        if (!q.options.includes(q.correct_answer)) {
+          return reply.status(400).send({ error: `correct_answer must be one of options for question index ${i}` });
+        }
+      }
+
+      // ensure tutor
+      const user = (req as any).user;
+      if (!user || user.role !== "tutor") {
+        return reply.status(403).send({ error: "Forbidden" });
+      }
+
+      const quiz = await tutorService.createQuiz({
+        title,
+        subject,
+        class_grade,
+        description,
+        questions,
+        created_by: user.id
+      });
+
+      return reply.status(201).send({
+        message: "Quiz created successfully",
+        quiz: {
+          id: quiz._id,
+          title: quiz.title,
+          subject: quiz.subject,
+          class_grade: quiz.class_grade,
+          description: quiz.description,
+          questions_count: quiz.questions.length,
+          created_at: quiz.createdAt
+        }
+      });
+    } catch (err: any) {
+      console.error("createQuiz error:", err);
+      if (err.message && err.message.includes("Invalid")) {
+        return reply.status(400).send({ error: err.message });
+      }
+      return reply.status(500).send({ error: "Internal Server Error" });
+    }
+  }
+  
 }

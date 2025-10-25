@@ -1,7 +1,7 @@
 import Assignment from "../models/Assignment";
+import Quiz from "../models/Quiz";
 
 export class TutorService {
-  // other tutor related methods...
 
   async createAssignment(payload: {
     title: string;
@@ -28,5 +28,33 @@ export class TutorService {
     });
 
     return assignment;
+  }
+
+
+  // Quiz
+  async createQuiz(payload: {
+    title: string;
+    subject: string;
+    class_grade: string;
+    description?: string;
+    questions: { question: string; options: string[]; correct_answer: string }[];
+    created_by: string;
+  }) {
+    // Basic validation at service level (controller does main checks)
+    if (!Array.isArray(payload.questions) || payload.questions.length === 0) {
+      throw new Error("Questions must be a non-empty array");
+    }
+
+    // Save
+    const quiz = await Quiz.create({
+      title: payload.title,
+      subject: payload.subject,
+      class_grade: payload.class_grade,
+      description: payload.description || "",
+      questions: payload.questions,
+      created_by: payload.created_by
+    });
+
+    return quiz;
   }
 }
