@@ -28,4 +28,50 @@ export default async function tutorRoutes(app: FastifyInstance) {
     },
     (req, reply) => tutorController.createAssignment(req, reply)
   );
+
+  // quiz
+  app.post(
+    "/tutor/create-quiz",
+    {
+      preHandler: [authMiddleware, roleMiddleware(["tutor"])],
+      schema: {
+        tags: ["Tutor"],
+        summary: "Create a new quiz (JSON)",
+        consumes: ["application/json"],
+        body: {
+          type: "object",
+          required: ["title", "subject", "class_grade", "questions"],
+          properties: {
+            title: { type: "string" },
+            subject: { type: "string" },
+            class_grade: { type: "string" },
+            description: { type: "string" },
+            questions: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["question", "options", "correct_answer"],
+                properties: {
+                  question: { type: "string" },
+                  options: { type: "array", items: { type: "string" } },
+                  correct_answer: { type: "string" }
+                }
+              }
+            }
+          }
+        },
+        response: {
+          201: {
+            type: "object",
+            properties: {
+              message: { type: "string" },
+              quiz: { type: "object" }
+            }
+          }
+        }
+      }
+    },
+    (req, reply) => tutorController.createQuiz(req, reply)
+  );
+  
 }
