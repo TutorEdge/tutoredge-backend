@@ -73,5 +73,56 @@ export default async function tutorRoutes(app: FastifyInstance) {
     },
     (req, reply) => tutorController.createQuiz(req, reply)
   );
-  
+
+
+  // update quiz
+  app.put(
+    "/tutor/update-quiz/:id",
+    {
+      preHandler: [authMiddleware, roleMiddleware(["tutor"])],
+      schema: {
+        tags: ["Tutor"],
+        summary: "Update quiz (edit/add/delete questions)",
+        consumes: ["application/json"],
+        params: {
+          type: "object",
+          properties: { id: { type: "string" } },
+          required: ["id"]
+        },
+        body: {
+          type: "object",
+          required: ["title", "subject", "class_grade"],
+          properties: {
+            title: { type: "string" },
+            subject: { type: "string" },
+            class_grade: { type: "string" },
+            description: { type: "string" },
+            questions: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  id: { type: "string" },
+                  question: { type: "string" },
+                  options: { type: "array", items: { type: "string" } },
+                  correct_answer: { type: "string" },
+                  type: { type: "string" }
+                }
+              }
+            }
+          }
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              message: { type: "string" },
+              quiz: { type: "object" }
+            }
+          }
+        }
+      }
+    },
+    (req, reply) => tutorController.updateQuiz(req, reply)
+  );
 }

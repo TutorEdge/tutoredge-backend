@@ -136,68 +136,136 @@ export class TutorController {
     }
   }
 
-  //Quiz
-  async createQuiz(req: FastifyRequest, reply: FastifyReply) {
+  // Quiz
+async createQuiz(req: FastifyRequest, reply: FastifyReply) {
+  try {
+    const body = req.body as any;
+    const { title, subject, class_grade, description, questions } = body;
+
+    // ✅ 1. Validate required fields
+    if (!title || !subject || !class_grade || !questions) {
+      return reply
+        .status(400)
+        .send({
+          error: "Missing required fields: title, subject, class_grade, questions",
+        });
+    }
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return reply
+        .status(400)
+        .send({ error: "questions must be a non-empty array" });
+    }
+
+    // ✅ 2. Validate each question
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      if (
+        !q ||
+        typeof q.question !== "string" ||
+        !Array.isArray(q.options) ||
+        q.options.length < 2 ||
+        typeof q.correct_answer !== "string"
+      ) {
+        return reply
+          .status(400)
+          .send({ error: `Invalid question at index ${i}` });
+      }
+      if (!q.options.includes(q.correct_answer)) {
+        return reply
+          .status(400)
+          .send({
+            error: `correct_answer must be one of options for question index ${i}`,
+          });
+      }
+    }
+
+    // ✅ 3. Ensure tutor
+    const user = (req as any).user;
+    if (!user || user.role !== "tutor") {
+      return reply.status(403).send({ error: "Forbidden" });
+    }
+
+    // ✅ 4. Create quiz
+    const quizDoc = await tutorService.createQuiz({
+      title,
+      subject,
+      class_grade,
+      description,
+      questions,
+      created_by: user.id,
+    });
+
+    // ✅ 5. Convert mongoose document to plain JS object
+    const quiz = quizDoc;
+
+    // ✅ 6. Send clean response
+    return reply.status(201).send({
+      message: "Quiz created successfully",
+      quiz: {
+        id: quiz._id,
+        title: quiz.title,
+        subject: quiz.subject,
+        class_grade: quiz.class_grade,
+        description: quiz.description,
+        questions_count: quiz.questions?.length || 0,
+        created_at: quiz.createdAt,
+      },
+    });
+  } catch (err: any) {
+    console.error("createQuiz error:", err);
+    if (err.message && err.message.includes("Invalid")) {
+      return reply.status(400).send({ error: err.message });
+    }
+    return reply.status(500).send({ error: "Internal Server Error" });
+  }
+}
+
+  //update quiz
+  async updateQuiz(req: FastifyRequest, reply: FastifyReply) {
     try {
-      const body = req.body as any;
+      const quizId = (req.params as any).id;
+      const payload = req.body as any;
 
-      const { title, subject, class_grade, description, questions } = body;
+      // Basic request validation
+      if (!quizId) return reply.status(400).send({ error: "Missing quiz id in params" });
 
-      // Validate required
-      if (!title || !subject || !class_grade || !questions) {
-        return reply.status(400).send({ error: "Missing required fields: title, subject, class_grade, questions" });
+      if (!payload.title || !payload.subject || !payload.class_grade) {
+        return reply.status(400).send({ error: "Missing required fields: title, subject, class_grade" });
       }
 
-      if (!Array.isArray(questions) || questions.length === 0) {
-        return reply.status(400).send({ error: "questions must be a non-empty array" });
+      // Validate questions shape (optional quick check)
+      if (payload.questions && !Array.isArray(payload.questions)) {
+        return reply.status(400).send({ error: "questions must be an array" });
       }
 
-      // Validate each question
-      for (let i = 0; i < questions.length; i++) {
-        const q = questions[i];
-        if (!q || typeof q.question !== "string" || !Array.isArray(q.options) || q.options.length < 2 || typeof q.correct_answer !== "string") {
-          return reply.status(400).send({ error: `Invalid question at index ${i}` });
-        }
-        // correct_answer must be one of options
-        if (!q.options.includes(q.correct_answer)) {
-          return reply.status(400).send({ error: `correct_answer must be one of options for question index ${i}` });
-        }
-      }
-
-      // ensure tutor
       const user = (req as any).user;
       if (!user || user.role !== "tutor") {
         return reply.status(403).send({ error: "Forbidden" });
       }
 
-      const quiz = await tutorService.createQuiz({
-        title,
-        subject,
-        class_grade,
-        description,
-        questions,
-        created_by: user.id
-      });
+      const updated = await tutorService.updateQuiz(quizId, user.id, payload);
 
-      return reply.status(201).send({
-        message: "Quiz created successfully",
+      return reply.status(200).send({
+        message: "Quiz updated successfully",
         quiz: {
-          id: quiz._id,
-          title: quiz.title,
-          subject: quiz.subject,
-          class_grade: quiz.class_grade,
-          description: quiz.description,
-          questions_count: quiz.questions.length,
-          created_at: quiz.createdAt
+          id: updated._id,
+          title: updated.title,
+          subject: updated.subject,
+          class_grade: updated.class_grade,
+          description: updated.description,
+          questions_count: updated.questions.length,
+          updated_at: updated.updatedAt
         }
       });
     } catch (err: any) {
-      console.error("createQuiz error:", err);
-      if (err.message && err.message.includes("Invalid")) {
+      console.error("updateQuiz error:", err);
+      if (err.message === "Quiz not found") return reply.status(404).send({ error: err.message });
+      if (err.message === "Forbidden: you are not the creator of this quiz") return reply.status(403).send({ error: err.message });
+      if (err.message && (err.message.includes("Missing") || err.message.includes("correct_answer") || err.message.includes("Invalid"))) {
         return reply.status(400).send({ error: err.message });
       }
       return reply.status(500).send({ error: "Internal Server Error" });
     }
   }
-  
 }
