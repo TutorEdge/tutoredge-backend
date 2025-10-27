@@ -146,4 +146,32 @@ export class TutorService {
     await quiz.save();
     return quiz;
   }
+
+  
+  // Delete quiz
+  async deleteQuiz(quizId: string, tutorId: string) {
+    // validate id
+    if (!mongoose.Types.ObjectId.isValid(quizId)) {
+      throw new Error("Invalid quiz ID");
+    }
+
+    // find quiz
+    const quiz = await Quiz.findById(quizId);
+    if (!quiz) throw new Error("Quiz not found");
+
+    // ownership check
+    if (String(quiz.created_by) !== String(tutorId)) {
+      throw new Error("Forbidden");
+    }
+
+    // NOTE: hard delete here. For soft delete, set flag instead.
+    await Quiz.findByIdAndDelete(quizId);
+
+    // Optionally return deleted quiz summary
+    return {
+      id: quiz._id,
+      title: quiz.title,
+      subject: quiz.subject
+    };
+  }
 }

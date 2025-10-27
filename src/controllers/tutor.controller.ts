@@ -142,7 +142,7 @@ async createQuiz(req: FastifyRequest, reply: FastifyReply) {
     const body = req.body as any;
     const { title, subject, class_grade, description, questions } = body;
 
-    // ✅ 1. Validate required fields
+    //  1. Validate required fields
     if (!title || !subject || !class_grade || !questions) {
       return reply
         .status(400)
@@ -157,7 +157,7 @@ async createQuiz(req: FastifyRequest, reply: FastifyReply) {
         .send({ error: "questions must be a non-empty array" });
     }
 
-    // ✅ 2. Validate each question
+    //  2. Validate each question
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       if (
@@ -180,13 +180,13 @@ async createQuiz(req: FastifyRequest, reply: FastifyReply) {
       }
     }
 
-    // ✅ 3. Ensure tutor
+    //  3. Ensure tutor
     const user = (req as any).user;
     if (!user || user.role !== "tutor") {
       return reply.status(403).send({ error: "Forbidden" });
     }
 
-    // ✅ 4. Create quiz
+    //  4. Create quiz
     const quizDoc = await tutorService.createQuiz({
       title,
       subject,
@@ -196,10 +196,10 @@ async createQuiz(req: FastifyRequest, reply: FastifyReply) {
       created_by: user.id,
     });
 
-    // ✅ 5. Convert mongoose document to plain JS object
+    // 5. Convert mongoose document to plain JS object
     const quiz = quizDoc;
 
-    // ✅ 6. Send clean response
+    // 6. Send clean response
     return reply.status(201).send({
       message: "Quiz created successfully",
       quiz: {
@@ -268,4 +268,34 @@ async createQuiz(req: FastifyRequest, reply: FastifyReply) {
       return reply.status(500).send({ error: "Internal Server Error" });
     }
   }
+
+  // delete quiz
+  async deleteQuiz(req: FastifyRequest, reply: FastifyReply) {
+  try {
+    const quizId = (req.params as any).id;
+    if (!quizId) return reply.status(400).send({ error: "Missing quiz id in params" });
+
+    const user = (req as any).user;
+    if (!user || user.role !== "tutor") {
+      return reply.status(403).send({ error: "Unauthorized access" });
+    }
+
+    // call service
+    const result = await tutorService.deleteQuiz(quizId, user.id);
+
+    // log deletion for audit (optional)
+    console.log(`Quiz deleted by tutor ${user.id} — quiz ${quizId}`);
+
+    return reply.status(200).send({
+      message: "Quiz deleted successfully",
+      deleted_quiz_id: String(result.id)
+    });
+  } catch (err: any) {
+    console.error("deleteQuiz error:", err);
+    if (err.message === "Quiz not found") return reply.status(404).send({ error: "Quiz not found" });
+    if (err.message === "Forbidden") return reply.status(403).send({ error: "Unauthorized access" });
+    if (err.message && err.message.includes("Invalid")) return reply.status(400).send({ error: err.message });
+    return reply.status(500).send({ error: "Internal Server Error" });
+  }
+}
 }
