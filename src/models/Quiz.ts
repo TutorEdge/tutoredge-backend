@@ -1,9 +1,11 @@
 import mongoose, { Schema, Document, Types } from "mongoose";
 
 export interface IQuestion {
+  _id?: Types.ObjectId;
   question: string;
   options: string[];
   correct_answer: string;
+  type?: string;
 }
 
 export interface IQuiz extends Document {
@@ -21,9 +23,9 @@ const QuestionSchema = new Schema<IQuestion>(
   {
     question: { type: String, required: true },
     options: { type: [String], required: true },
-    correct_answer: { type: String, required: true }
+    correct_answer: { type: String, required: true },
+    type: { type: String, default: "Multiple Choice" }
   },
-  { _id: false }
 );
 
 const QuizSchema = new Schema<IQuiz>(

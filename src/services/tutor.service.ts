@@ -1,5 +1,6 @@
 import Assignment from "../models/Assignment";
 import Quiz from "../models/Quiz";
+import mongoose from "mongoose";
 
 export class TutorService {
 
@@ -55,6 +56,94 @@ export class TutorService {
       created_by: payload.created_by
     });
 
+    return quiz;
+  }
+
+  // update quiz
+  async updateQuiz(quizId: string, tutorId: string, data: any) {
+    if (!mongoose.Types.ObjectId.isValid(quizId)) {
+      throw new Error("Invalid quiz ID");
+    }
+
+    const quiz = await Quiz.findById(quizId);
+    if (!quiz) throw new Error("Quiz not found");
+
+    // permission check
+    if (String(quiz.created_by) !== String(tutorId)) {
+      throw new Error("Forbidden: you are not the creator of this quiz");
+    }
+
+    // Validate basics (service-level): required metadata
+    if (!data.title || !data.subject || !data.class_grade) {
+      throw new Error("Missing required fields: title, subject, class_grade");
+    }
+
+    // Update metadata
+    quiz.title = data.title;
+    quiz.subject = data.subject;
+    quiz.class_grade = data.class_grade;
+    quiz.description = data.description || quiz.description;
+
+    const incomingQuestions: any[] = Array.isArray(data.questions) ? data.questions : [];
+
+    // If no questions provided, you may decide to reject or allow; here we allow empty array
+    // Build map of incoming question ids (strings)
+    const incomingIds = new Set(
+      incomingQuestions
+        .filter((q) => q.id || q._id)
+        .map((q) => String(q.id || q._id))
+    );
+
+    // 1) Update existing subdocs and mark which existing ids remain
+    const existingQuestionIds = quiz.questions.map((q: any) => String(q._id));
+
+    // Update or add
+    for (const q of incomingQuestions) {
+      if (q.id || q._id) {
+        const qid = String(q.id || q._id);
+        // try to find subdoc
+        const subdoc = quiz.questions.find((qq: any) => String(qq._id) === qid);
+        if (subdoc) {
+          // validate correct_answer in options
+          if (q.options && !q.options.includes(q.correct_answer)) {
+            throw new Error(`correct_answer must be one of options for question id ${qid}`);
+          }
+          subdoc.question = q.question ?? subdoc.question;
+          subdoc.options = Array.isArray(q.options) ? q.options : subdoc.options;
+          subdoc.correct_answer = q.correct_answer ?? subdoc.correct_answer;
+          if (q.type) subdoc.type = q.type;
+        } else {
+          // subdoc with this id not found — treat as new (or throw). We'll throw to avoid silent issues.
+          throw new Error(`Question with id ${qid} not found in this quiz`);
+        }
+      } else {
+        // new question -> push
+        if (!q.question || !Array.isArray(q.options) || q.options.length < 1 || !q.correct_answer) {
+          throw new Error("New questions must include question, options (non-empty), and correct_answer");
+        }
+        if (!q.options.includes(q.correct_answer)) {
+          throw new Error("correct_answer must be one of options for new question");
+        }
+        quiz.questions.push({
+          _id: new mongoose.Types.ObjectId(),
+          question: q.question,
+          options: q.options,
+          correct_answer: q.correct_answer,
+          type: q.type || "Multiple Choice"
+        });
+      }
+    }
+
+    // 2) Remove deleted questions: any existing id not present in incomingIds should be removed
+    for (const existingId of existingQuestionIds) {
+      if (!incomingIds.has(existingId)) {
+        // remove subdoc
+        quiz.questions = quiz.questions.filter((qq: any) => String(qq._id) !== existingId);
+      }
+    }
+
+    // Save and return updated quiz
+    await quiz.save();
     return quiz;
   }
 }
