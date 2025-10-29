@@ -45,3 +45,36 @@ export async function saveFile(buffer: Buffer, originalName: string, mimetype: s
     return { url, filename: baseName };
   }
 }
+
+export async function deleteFile(fileUrl: string): Promise<boolean> {
+  try {
+    if (!fileUrl) return false;
+
+    // 🔹 If Cloudinary is in use
+    if (useCloudinary) {
+      // Extract public_id from Cloudinary URL
+      // Example URL: https://res.cloudinary.com/demo/image/upload/v1699999/sample.jpg
+      const parts = fileUrl.split("/");
+      const filenameWithExt = parts[parts.length - 1]; // e.g. sample.jpg
+      const publicId = filenameWithExt.split(".")[0]; // e.g. sample
+
+      await cloudinary.uploader.destroy(publicId, { resource_type: "auto" });
+      return true;
+    }
+
+    // 🔹 If using local uploads
+    const uploadsDir = path.resolve(process.cwd(), "uploads");
+    const fileName = path.basename(fileUrl);
+    const filePath = path.join(uploadsDir, fileName);
+
+    if (fs.existsSync(filePath)) {
+      await fs.promises.unlink(filePath);
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    console.error("Error deleting file:", err);
+    return false;
+  }
+}

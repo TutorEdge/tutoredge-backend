@@ -199,6 +199,43 @@ export class TutorController {
     }
   }
 
+  //delete assignment
+  async deleteAssignment(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const assignmentId = (req.params as any).id;
+      if (!assignmentId) {
+        return reply.status(400).send({ error: "Missing assignment id in params" });
+      }
+
+      const user = (req as any).user;
+      if (!user || user.role !== "tutor") {
+        return reply.status(403).send({ error: "Unauthorized access" });
+      }
+
+      const result = await tutorService.deleteAssignment(assignmentId, user.id);
+
+      // optional audit log
+      console.log(`Assignment deleted by tutor ${user.id} — assignment ${assignmentId}`);
+
+      return reply.status(200).send({
+        message: "Assignment deleted successfully",
+        deleted_assignment_id: result.id
+      });
+    } catch (err: any) {
+      console.error("deleteAssignment error:", err);
+      if (err.message === "Assignment not found") {
+        return reply.status(404).send({ error: "Assignment not found" });
+      }
+      if (err.message === "Forbidden") {
+        return reply.status(403).send({ error: "Unauthorized access" });
+      }
+      if (err.message && err.message.includes("Invalid")) {
+        return reply.status(400).send({ error: err.message });
+      }
+      return reply.status(500).send({ error: "Internal Server Error" });
+    }
+  }
+
   // Quiz
   async createQuiz(req: FastifyRequest, reply: FastifyReply) {
     try {

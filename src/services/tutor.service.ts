@@ -1,6 +1,8 @@
 import Assignment from '../models/Assignment';
 import Quiz from '../models/Quiz';
 import mongoose from 'mongoose';
+import { deleteFile } from "../utils/upload";
+import { Types } from "mongoose";
 
 export class TutorService {
   async createAssignment(payload: {
@@ -65,6 +67,44 @@ export class TutorService {
 
     await assignment.save();
     return assignment;
+  }
+
+  // delete assignment
+   async deleteAssignment(assignmentId: string, tutorId: string) {
+    if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
+      throw new Error("Invalid assignment ID");
+    }
+
+    const assignment = await Assignment.findById(assignmentId);
+    if (!assignment) {
+      throw new Error("Assignment not found");
+    }
+
+    // ownership check
+    if (String(assignment.created_by) !== String(tutorId)) {
+      throw new Error("Forbidden");
+    }
+
+    // Delete attachments from storage (if any)
+    try {
+      const attachments = (assignment as any).attachments || [];
+      for (const att of attachments) {
+        try {
+          await deleteFile(att.url);
+        } catch (e) {
+          // log and continue — failing to delete file shouldn't block DB deletion,
+          // but you may choose to fail here if required by business rules
+          console.warn(`Failed to delete file ${att.url}:`, e);
+        }
+      }
+    } catch (err) {
+      console.warn("Error deleting attachments for assignment", assignmentId, err);
+    }
+
+    // Hard delete the assignment document
+    await Assignment.findByIdAndDelete(assignmentId);
+
+    return { id: (assignment._id as Types.ObjectId).toString(), title: assignment.title };
   }
 
   // Quiz
