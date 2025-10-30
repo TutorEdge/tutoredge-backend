@@ -48,6 +48,35 @@ export default async function tutorRoutes(app: FastifyInstance) {
     (req, reply) => tutorController.updateAssignment(req, reply)
   );
 
+  // delete assignment
+  app.delete(
+    "/tutor/delete-assignment/:id",
+    {
+      preHandler: [authMiddleware, roleMiddleware(["tutor"])],
+      schema: {
+        tags: ["Tutor"],
+        summary: "Delete an assignment (tutor only)",
+        params: {
+          type: "object",
+          properties: { id: { type: "string" } },
+          required: ["id"]
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              message: { type: "string" },
+              deleted_assignment_id: { type: "string" }
+            }
+          },
+          404: { type: "object", properties: { error: { type: "string" } } },
+          403: { type: "object", properties: { error: { type: "string" } } }
+        }
+      }
+    },
+    (req, reply) => tutorController.deleteAssignment(req, reply)
+  );
+
   // quiz
   app.post(
     "/tutor/create-quiz",
