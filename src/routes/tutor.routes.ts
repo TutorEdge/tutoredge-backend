@@ -29,6 +29,25 @@ export default async function tutorRoutes(app: FastifyInstance) {
     (req, reply) => tutorController.createAssignment(req, reply)
   );
 
+  //update assignment
+   app.put(
+    "/tutor/update-assignment/:id",
+    {
+      preHandler: [authMiddleware, roleMiddleware(["tutor"])],
+      schema: {
+        tags: ["Tutor"],
+        summary: "Update an assignment (multipart/form-data)",
+        consumes: ["multipart/form-data"],
+        params: {
+          type: "object",
+          properties: { id: { type: "string" } },
+          required: ["id"]
+        }
+      }
+    },
+    (req, reply) => tutorController.updateAssignment(req, reply)
+  );
+
   // quiz
   app.post(
     "/tutor/create-quiz",
