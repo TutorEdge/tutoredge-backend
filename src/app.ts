@@ -7,10 +7,18 @@ import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import path from "path";
 import tutorRoutes from "./routes/tutor.routes";
+import cors from "@fastify/cors";
 
 const app = fastify({ logger: true });
 
 async function buildApp() {
+    // Register CORS
+  await app.register(cors, {
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  });
+
   // Swagger setup
   await app.register(swagger, {
     openapi: {
