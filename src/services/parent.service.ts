@@ -1,5 +1,7 @@
 import User from "../models/User";
 import ParentRequest from "../models/ParentRequest";
+import Student from "../models/Student";
+import { Types } from "mongoose";
 
 export class ParentService {
   async searchTutors(filters: any) {
@@ -109,5 +111,25 @@ export class ParentService {
       status: r.status,
       createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : new Date(r.createdAt).toISOString()
     }));
+  }
+
+
+  // add student
+  async addStudent(parentId: string, payload: { full_name: string; class_grade: string }) {
+    if (!payload.full_name || !payload.class_grade) {
+      throw new Error("Missing required fields");
+    }
+
+    if (!Types.ObjectId.isValid(parentId)) {
+      throw new Error("Invalid parent id");
+    }
+
+    const student = await Student.create({
+      full_name: payload.full_name,
+      class_grade: payload.class_grade,
+      parent_id: new Types.ObjectId(parentId)
+    });
+
+    return student;
   }
 }
