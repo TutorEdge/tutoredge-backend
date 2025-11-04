@@ -201,4 +201,32 @@ export default async function tutorRoutes(app: FastifyInstance) {
     },
     (req, reply) => tutorController.deleteQuiz(req, reply)
   );
+
+
+  //upload study material
+  app.post(
+    "/tutor/upload-study-material",
+    {
+      preHandler: [authMiddleware, roleMiddleware(["tutor"])],
+      schema: {
+        tags: ["Tutor"],
+        summary: "Upload study material (multipart/form-data)",
+        consumes: ["multipart/form-data"],
+        body: { type: "object" }, // multipart - validation done in controller
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              success: { type: "boolean" },
+              message: { type: "string" },
+              data: { type: "object" }
+            }
+          },
+          400: { type: "object" },
+          403: { type: "object" }
+        }
+      }
+    },
+    (req, reply) => tutorController.uploadStudyMaterial(req, reply)
+  );
 }
