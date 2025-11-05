@@ -3,6 +3,7 @@ import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import authRoutes from "./routes/auth.routes";
 import parentRoutes from "./routes/parent.routes";
+import studentRoutes from "./routes/student.routes";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import path from "path";
@@ -67,6 +68,7 @@ async function buildApp() {
   app.register(authRoutes, { prefix: "/api/v1" });
   app.register(parentRoutes, { prefix: "/api/v1" });
   app.register(tutorRoutes, { prefix: "/api/v1" });
+  app.register(studentRoutes, { prefix: "/api/v1" });
 
   return app;
 }
