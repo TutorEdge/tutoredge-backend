@@ -7,103 +7,115 @@ const tutorService = new TutorService();
 
 export class TutorController {
   async createAssignment(req: FastifyRequest, reply: FastifyReply) {
-  try {
-    if (!req.isMultipart()) {
-      return reply.status(400).send({ error: 'Request must be multipart/form-data' });
-    }
-
-    const parts = req.parts();
-    const fields: Record<string, any> = {};
-    const attachments: { filename: string; url: string }[] = [];
-
-    // parse files + fields
-    for await (const part of parts) {
-      if (part.type === 'file') {
-        const chunks: Buffer[] = [];
-        for await (const chunk of part.file) chunks.push(Buffer.from(chunk));
-        const buffer = Buffer.concat(chunks);
-        const mimetype = part.mimetype || '';
-
-        // file validations
-        const allowed = [
-          'application/pdf',
-          'application/msword',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          'image/jpeg',
-          'image/png'
-        ];
-        if (!allowed.includes(mimetype)) {
-          return reply.status(400).send({ error: 'Invalid file type' });
-        }
-        if (buffer.length > 10 * 1024 * 1024) {
-          return reply.status(400).send({ error: 'File too large (max 10MB)' });
-        }
-
-        // save file
-        const saved = await saveFile(buffer, part.filename || 'file', mimetype);
-        attachments.push({ filename: saved.filename, url: saved.url });
-      } else {
-        // collect text fields
-        fields[part.fieldname] = part.value;
+    try {
+      if (!req.isMultipart()) {
+        return reply
+          .status(400)
+          .send({ error: 'Request must be multipart/form-data' });
       }
-    }
 
-    // required field validation
-    const title = fields.title?.trim();
-    const subject = fields.subject?.trim();
-    const class_grade = fields.class_grade?.trim();
-    const due_date = fields.due_date?.trim();
-    const allow_submission_online =
-      fields.allow_submission_online === 'true' || fields.allow_submission_online === true;
+      const parts = req.parts();
+      const fields: Record<string, any> = {};
+      const attachments: { filename: string; url: string }[] = [];
 
-    if (!title || !subject || !class_grade || !due_date) {
-      return reply.status(400).send({
-        error: 'Missing required fields: title, subject, class_grade, due_date'
+      // parse files + fields
+      for await (const part of parts) {
+        if (part.type === 'file') {
+          const chunks: Buffer[] = [];
+          for await (const chunk of part.file) chunks.push(Buffer.from(chunk));
+          const buffer = Buffer.concat(chunks);
+          const mimetype = part.mimetype || '';
+
+          // file validations
+          const allowed = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'image/jpeg',
+            'image/png',
+          ];
+          if (!allowed.includes(mimetype)) {
+            return reply.status(400).send({ error: 'Invalid file type' });
+          }
+          if (buffer.length > 10 * 1024 * 1024) {
+            return reply
+              .status(400)
+              .send({ error: 'File too large (max 10MB)' });
+          }
+
+          // save file
+          const saved = await saveFile(
+            buffer,
+            part.filename || 'file',
+            mimetype,
+          );
+          attachments.push({ filename: saved.filename, url: saved.url });
+        } else {
+          // collect text fields
+          fields[part.fieldname] = part.value;
+        }
+      }
+
+      // required field validation
+      const title = fields.title?.trim();
+      const subject = fields.subject?.trim();
+      const class_grade = fields.class_grade?.trim();
+      const due_date = fields.due_date?.trim();
+      const allow_submission_online =
+        fields.allow_submission_online === 'true' ||
+        fields.allow_submission_online === true;
+
+      if (!title || !subject || !class_grade || !due_date) {
+        return reply.status(400).send({
+          error:
+            'Missing required fields: title, subject, class_grade, due_date',
+        });
+      }
+
+      // simple date format validation
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(due_date)) {
+        return reply
+          .status(400)
+          .send({ error: 'due_date must be in YYYY-MM-DD format' });
+      }
+
+      // get user from middleware
+      const user = (req as any).user;
+      if (!user || user.role !== 'tutor') {
+        return reply.status(403).send({ error: 'Forbidden' });
+      }
+
+      // call service
+      const assignment = await tutorService.createAssignment({
+        title,
+        subject,
+        class_grade,
+        instructions: fields.instructions || '',
+        due_date,
+        allow_submission_online,
+        attachments,
+        created_by: user.id,
       });
+
+      return reply.status(201).send({
+        message: 'Assignment created successfully',
+        assignment: {
+          id: assignment._id,
+          title: assignment.title,
+          subject: assignment.subject,
+          class_grade: assignment.class_grade,
+          instructions: assignment.instructions,
+          attachments: assignment.attachments || [],
+          due_date: assignment.due_date,
+          allow_submission_online: assignment.allow_submission_online,
+          created_at: assignment.createdAt,
+        },
+      });
+    } catch (err: any) {
+      console.error('createAssignment error:', err);
+      return reply.status(500).send({ error: 'Internal Server Error' });
     }
-
-    // simple date format validation
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(due_date)) {
-      return reply.status(400).send({ error: 'due_date must be in YYYY-MM-DD format' });
-    }
-
-    // get user from middleware
-    const user = (req as any).user;
-    if (!user || user.role !== 'tutor') {
-      return reply.status(403).send({ error: 'Forbidden' });
-    }
-
-    // call service
-    const assignment = await tutorService.createAssignment({
-      title,
-      subject,
-      class_grade,
-      instructions: fields.instructions || '',
-      due_date,
-      allow_submission_online,
-      attachments,
-      created_by: user.id
-    });
-
-    return reply.status(201).send({
-      message: 'Assignment created successfully',
-      assignment: {
-        id: assignment._id,
-        title: assignment.title,
-        subject: assignment.subject,
-        class_grade: assignment.class_grade,
-        instructions: assignment.instructions,
-        attachments: assignment.attachments || [],
-        due_date: assignment.due_date,
-        allow_submission_online: assignment.allow_submission_online,
-        created_at: assignment.createdAt
-      }
-    });
-  } catch (err: any) {
-    console.error('createAssignment error:', err);
-    return reply.status(500).send({ error: 'Internal Server Error' });
   }
-}
 
   //update assignment
   async updateAssignment(req: FastifyRequest, reply: FastifyReply) {
@@ -204,35 +216,39 @@ export class TutorController {
     try {
       const assignmentId = (req.params as any).id;
       if (!assignmentId) {
-        return reply.status(400).send({ error: "Missing assignment id in params" });
+        return reply
+          .status(400)
+          .send({ error: 'Missing assignment id in params' });
       }
 
       const user = (req as any).user;
-      if (!user || user.role !== "tutor") {
-        return reply.status(403).send({ error: "Unauthorized access" });
+      if (!user || user.role !== 'tutor') {
+        return reply.status(403).send({ error: 'Unauthorized access' });
       }
 
       const result = await tutorService.deleteAssignment(assignmentId, user.id);
 
       // optional audit log
-      console.log(`Assignment deleted by tutor ${user.id} — assignment ${assignmentId}`);
+      console.log(
+        `Assignment deleted by tutor ${user.id} — assignment ${assignmentId}`,
+      );
 
       return reply.status(200).send({
-        message: "Assignment deleted successfully",
-        deleted_assignment_id: result.id
+        message: 'Assignment deleted successfully',
+        deleted_assignment_id: result.id,
       });
     } catch (err: any) {
-      console.error("deleteAssignment error:", err);
-      if (err.message === "Assignment not found") {
-        return reply.status(404).send({ error: "Assignment not found" });
+      console.error('deleteAssignment error:', err);
+      if (err.message === 'Assignment not found') {
+        return reply.status(404).send({ error: 'Assignment not found' });
       }
-      if (err.message === "Forbidden") {
-        return reply.status(403).send({ error: "Unauthorized access" });
+      if (err.message === 'Forbidden') {
+        return reply.status(403).send({ error: 'Unauthorized access' });
       }
-      if (err.message && err.message.includes("Invalid")) {
+      if (err.message && err.message.includes('Invalid')) {
         return reply.status(400).send({ error: err.message });
       }
-      return reply.status(500).send({ error: "Internal Server Error" });
+      return reply.status(500).send({ error: 'Internal Server Error' });
     }
   }
 
@@ -409,4 +425,132 @@ export class TutorController {
       return reply.status(500).send({ error: 'Internal Server Error' });
     }
   }
+
+  //upload study material
+  async uploadStudyMaterial(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      if (!(req as any).isMultipart || !(req as any).parts) {
+        return reply
+          .status(400)
+          .send({
+            success: false,
+            message: 'Request must be multipart/form-data',
+          });
+      }
+
+      const parts = (req as any).parts();
+      const fields: Record<string, any> = {};
+      const files: {
+        filename: string;
+        url: string;
+        size?: number;
+        mimetype?: string;
+      }[] = [];
+
+      // Accept multiple files and fields
+      for await (const part of parts) {
+        if (part.type === 'file') {
+          const chunks: Buffer[] = [];
+          for await (const chunk of part.file) chunks.push(Buffer.from(chunk));
+          const buffer = Buffer.concat(chunks);
+          const mimetype = part.mimetype || '';
+          // Allowed types: pdf, doc, docx, images, videos
+          const allowed = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'image/jpeg',
+            'image/png',
+            'video/mp4',
+            'video/webm',
+            'video/quicktime',
+          ];
+          if (!allowed.includes(mimetype)) {
+            return reply
+              .status(400)
+              .send({ success: false, message: 'Invalid file type' });
+          }
+          // limit per-file size (adjust as needed)
+          if (buffer.length > 50 * 1024 * 1024) {
+            // example 50MB limit for videos
+            return reply
+              .status(400)
+              .send({ success: false, message: 'File too large' });
+          }
+
+          const saved = await saveFile(
+            buffer,
+            part.filename || 'file',
+            mimetype,
+          );
+          files.push({
+            filename: saved.filename,
+            url: saved.url,
+            size: buffer.length,
+            mimetype,
+          });
+        } else {
+          // field
+          fields[part.fieldname] = part.value;
+        }
+      }
+
+      // required fields
+      const material_title = (fields.material_title || '').trim();
+      const subject = (fields.subject || '').trim();
+      const class_grade = (fields.class_grade || '').trim();
+      const description = fields.description || '';
+      const share_with_all =
+        fields.share_with_all === 'true' || fields.share_with_all === true;
+
+      if (!material_title || !subject || !class_grade) {
+        return reply
+          .status(400)
+          .send({ success: false, message: 'Missing required fields' });
+      }
+      if (!files.length) {
+        return reply
+          .status(400)
+          .send({ success: false, message: 'At least one file is required' });
+      }
+
+      // auth
+      const user = (req as any).user;
+      if (!user || user.role !== 'tutor') {
+        return reply.status(403).send({ success: false, message: 'Forbidden' });
+      }
+
+      const material = await tutorService.uploadStudyMaterial({
+        material_title,
+        subject,
+        class_grade,
+        description,
+        files,
+        share_with_all,
+        created_by: user.id,
+      });
+
+      return reply.status(200).send({
+        success: true,
+        message: 'Study material uploaded successfully.',
+        data: {
+          id: material.id,
+          material_title: material.material_title,
+          subject: material.subject,
+          class_grade: material.class_grade,
+          description: material.description,
+          share_with_all: material.share_with_all,
+          files: material.files,
+          uploaded_at: material.createdAt,
+        },
+      });
+    } catch (err: any) {
+      console.error('uploadStudyMaterial error:', err);
+      return reply
+        .status(500)
+        .send({ success: false, message: 'Internal Server Error' });
+    }
+  }
+
+  
 }
