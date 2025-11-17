@@ -491,45 +491,59 @@ export class TutorController {
     }
   }
 
-  // Get all quizzes created by tutor
+    // Get tutor quizzes
   async getTutorQuizzes(req: FastifyRequest, reply: FastifyReply) {
     try {
       const user = (req as any).user;
-      if (!user || user.role !== "tutor") {
-        return reply.status(403).send({ success: false, message: "Unauthorized" });
-      }
-
-      const { subject, class_grade, page, limit } = req.query as any;
-
-      const quizzes = await tutorService.getTutorQuizzes(user.id, {
-        subject,
-        class_grade,
-        page: Number(page),
-        limit: Number(limit)
-      });
-
-      if (!quizzes || quizzes.length === 0) {
-        return reply.status(404).send({
-          success: false,
-          message: "No quizzes found for this tutor."
+      if (!user || user.role !== 'tutor') {
+        return reply.status(403).send({ 
+          success: false, 
+          message: 'Forbidden' 
         });
       }
 
+      const query = req.query as any;
+      const subject = query.subject?.trim();
+      const class_grade = query.class_grade?.trim();
+      const page = query.page ? Number(query.page) : 1;
+      const limit = query.limit ? Number(query.limit) : 10;
+
+      const result = await tutorService.getTutorQuizzes(user.id, {
+        subject,
+        class_grade,
+        page,
+        limit,
+      });
+
+      // If no quizzes found, return 404 as per spec
+      if (!result.quizzes || result.quizzes.length === 0) {
+        return reply.status(404).send({
+          success: false,
+          message: 'No quizzes found for this tutor.',
+        });
+      }
+
+      // Format response to match spec exactly
+      const formattedQuizzes = result.quizzes.map((quiz: any) => ({
+        id: String(quiz._id),
+        title: quiz.title,
+        subject: quiz.subject,
+        class_grade: quiz.class_grade,
+        due_date: quiz.due_date || null, // Quiz model doesn't have due_date, so null
+        total_questions: Array.isArray(quiz.questions) ? quiz.questions.length : 0,
+        status: 'Active', // Default status since Quiz model doesn't have status field
+      }));
+
       return reply.status(200).send({
         success: true,
-        data: quizzes.map((q: any) => ({
-          id: q._id,
-          title: q.title,
-          subject: q.subject,
-          class_grade: q.class_grade,
-          total_questions: q.questions?.length || 0,
-          status: "Active",
-          created_at: q.createdAt
-        }))
+        data: formattedQuizzes,
       });
     } catch (err: any) {
-      console.error("getTutorQuizzes error:", err);
-      return reply.status(500).send({ success: false, message: "Internal Server Error" });
+      console.error('getTutorQuizzes error:', err);
+      return reply.status(500).send({ 
+        success: false, 
+        message: 'Internal Server Error' 
+      });
     }
   }
 

@@ -213,9 +213,9 @@ export default async function tutorRoutes(app: FastifyInstance) {
     (req, reply) => tutorController.deleteQuiz(req, reply)
   );
 
-  // Get all quizzes created by tutor
+    // Get all quizzes created by tutor
   app.get(
-    "/tutor/quizzes",
+    "/tutor/quizzes", // or "/tutor/quizzes/" if you want trailing slash
     {
       preHandler: [authMiddleware, roleMiddleware(["tutor"])],
       schema: {
@@ -228,6 +228,36 @@ export default async function tutorRoutes(app: FastifyInstance) {
             class_grade: { type: "string" },
             page: { type: "number" },
             limit: { type: "number" }
+          }
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              success: { type: "boolean" },
+              data: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    title: { type: "string" },
+                    subject: { type: "string" },
+                    class_grade: { type: "string" },
+                    due_date: { type: ["string", "null"] },
+                    total_questions: { type: "number" },
+                    status: { type: "string" }
+                  }
+                }
+              }
+            }
+          },
+          404: {
+            type: "object",
+            properties: {
+              success: { type: "boolean" },
+              message: { type: "string" }
+            }
           }
         }
       }

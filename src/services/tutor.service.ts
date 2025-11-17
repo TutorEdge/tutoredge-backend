@@ -270,7 +270,7 @@ export class TutorService {
     };
   }
 
-  // Get all quizzes created by tutor
+    // Get tutor quizzes with filtering and pagination
   async getTutorQuizzes(
     tutorId: string,
     filters: {
@@ -280,23 +280,35 @@ export class TutorService {
       limit?: number;
     }
   ) {
-    const { subject, class_grade } = filters;
-    const page = filters.page || 1;
-    const limit = filters.limit || 10;
+    const page = Math.max(1, filters.page || 1);
+    const limit = Math.max(1, Math.min(100, filters.limit || 10)); // default 10, max 100
+    const skip = (page - 1) * limit;
 
-    const query: any = {
-      created_by: tutorId
+    // Build query - only quizzes created by this tutor
+    const query: any = { created_by: tutorId };
+
+    if (filters.subject) {
+      query.subject = filters.subject;
+    }
+
+    if (filters.class_grade) {
+      query.class_grade = filters.class_grade;
+    }
+
+    // Get quizzes with pagination
+    const [quizzes, total] = await Promise.all([
+      Quiz.find(query)
+        .sort({ createdAt: -1 }) // newest first
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Quiz.countDocuments(query),
+    ]);
+
+    return {
+      quizzes,
+      total,
     };
-
-    if (subject) query.subject = subject;
-    if (class_grade) query.class_grade = class_grade;
-
-    const quizzes = await Quiz.find(query)
-      .sort({ createdAt: -1 }) // latest first
-      .skip((page - 1) * limit)
-      .limit(limit);
-
-    return quizzes;
   }
 
 }
