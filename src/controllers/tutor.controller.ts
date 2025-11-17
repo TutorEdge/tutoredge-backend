@@ -293,22 +293,103 @@ export class TutorController {
         created_by: user.id,
       });
 
-      // 5. Convert mongoose document to plain JS object
-      const quiz = quizDoc;
+      // Debug logging
+      console.log('quizDoc type:', typeof quizDoc);
+      console.log('quizDoc:', quizDoc);
+      console.log('quizDoc._id:', (quizDoc as any)?._id);
+      console.log('quizDoc.title:', (quizDoc as any)?.title);
 
-      // 6. Send clean response
-      return reply.status(201).send({
-        message: 'Quiz created successfully',
-        quiz: {
-          id: quiz._id,
-          title: quiz.title,
-          subject: quiz.subject,
-          class_grade: quiz.class_grade,
-          description: quiz.description,
-          questions_count: quiz.questions?.length || 0,
-          created_at: quiz.createdAt,
-        },
+      // 5. Convert mongoose document to plain object
+      let quizData: any = {};
+      
+      if (quizDoc) {
+        const doc = quizDoc as any;
+        
+        // Try toJSON first
+        if (typeof doc.toJSON === 'function') {
+          quizData = doc.toJSON();
+          console.log('Used toJSON(), quizData:', quizData);
+        }
+        // Try toObject
+        else if (typeof doc.toObject === 'function') {
+          quizData = doc.toObject();
+          console.log('Used toObject(), quizData:', quizData);
+        }
+        // Direct property access
+        else {
+          quizData = {
+            _id: doc._id,
+            id: doc.id,
+            title: doc.title,
+            subject: doc.subject,
+            class_grade: doc.class_grade,
+            description: doc.description,
+            questions: doc.questions,
+            createdAt: doc.createdAt,
+            updatedAt: doc.updatedAt,
+          };
+          console.log('Used direct access, quizData:', quizData);
+        }
+      }
+      
+      // Fallback to request values if quizData is empty
+      if (!quizData || Object.keys(quizData).length === 0 || !quizData.title) {
+        console.log('Using fallback - request values');
+        quizData = {
+          title,
+          subject,
+          class_grade,
+          description: description || '',
+          questions: questions || [],
+        };
+      }
+
+      // 6. Build response object with explicit primitive values
+      const quizId = quizData._id ? String(quizData._id) : (quizData.id ? String(quizData.id) : '');
+      const quizTitle = String(quizData.title || title || '');
+      const quizSubject = String(quizData.subject || subject || '');
+      const quizClassGrade = String(quizData.class_grade || class_grade || '');
+      const quizDescription = String(quizData.description !== undefined ? quizData.description : (description || ''));
+      const quizQuestionsCount = Number(Array.isArray(quizData.questions) ? quizData.questions.length : (Array.isArray(questions) ? questions.length : 0));
+      const quizCreatedAt = String(quizData.createdAt || quizData.created_at || new Date().toISOString());
+
+      console.log('Extracted values:', {
+        quizId,
+        quizTitle,
+        quizSubject,
+        quizClassGrade,
+        quizDescription,
+        quizQuestionsCount,
+        quizCreatedAt
       });
+
+      // 7. Build plain object from primitives
+      const responseQuiz = {
+        id: quizId,
+        title: quizTitle,
+        subject: quizSubject,
+        class_grade: quizClassGrade,
+        description: quizDescription,
+        questions_count: quizQuestionsCount,
+        created_at: quizCreatedAt,
+      };
+
+      // Ensure it's a clean serializable object
+      const cleanQuiz = JSON.parse(JSON.stringify(responseQuiz));
+
+      console.log('Final response quiz object:', JSON.stringify(cleanQuiz, null, 2));
+      console.log('Type of cleanQuiz:', typeof cleanQuiz);
+      console.log('Keys in cleanQuiz:', Object.keys(cleanQuiz));
+
+      // 8. Send clean response
+      const response = {
+        message: 'Quiz created successfully',
+        quiz: cleanQuiz,
+      };
+
+      console.log('Full response object:', JSON.stringify(response, null, 2));
+
+      return reply.code(201).send(response);
     } catch (err: any) {
       console.error('createQuiz error:', err);
       if (err.message && err.message.includes('Invalid')) {
@@ -409,4 +490,47 @@ export class TutorController {
       return reply.status(500).send({ error: 'Internal Server Error' });
     }
   }
+
+  // Get all quizzes created by tutor
+  async getTutorQuizzes(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const user = (req as any).user;
+      if (!user || user.role !== "tutor") {
+        return reply.status(403).send({ success: false, message: "Unauthorized" });
+      }
+
+      const { subject, class_grade, page, limit } = req.query as any;
+
+      const quizzes = await tutorService.getTutorQuizzes(user.id, {
+        subject,
+        class_grade,
+        page: Number(page),
+        limit: Number(limit)
+      });
+
+      if (!quizzes || quizzes.length === 0) {
+        return reply.status(404).send({
+          success: false,
+          message: "No quizzes found for this tutor."
+        });
+      }
+
+      return reply.status(200).send({
+        success: true,
+        data: quizzes.map((q: any) => ({
+          id: q._id,
+          title: q.title,
+          subject: q.subject,
+          class_grade: q.class_grade,
+          total_questions: q.questions?.length || 0,
+          status: "Active",
+          created_at: q.createdAt
+        }))
+      });
+    } catch (err: any) {
+      console.error("getTutorQuizzes error:", err);
+      return reply.status(500).send({ success: false, message: "Internal Server Error" });
+    }
+  }
+
 }

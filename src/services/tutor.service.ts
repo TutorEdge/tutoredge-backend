@@ -269,4 +269,34 @@ export class TutorService {
       subject: quiz.subject,
     };
   }
+
+  // Get all quizzes created by tutor
+  async getTutorQuizzes(
+    tutorId: string,
+    filters: {
+      subject?: string;
+      class_grade?: string;
+      page?: number;
+      limit?: number;
+    }
+  ) {
+    const { subject, class_grade } = filters;
+    const page = filters.page || 1;
+    const limit = filters.limit || 10;
+
+    const query: any = {
+      created_by: tutorId
+    };
+
+    if (subject) query.subject = subject;
+    if (class_grade) query.class_grade = class_grade;
+
+    const quizzes = await Quiz.find(query)
+      .sort({ createdAt: -1 }) // latest first
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    return quizzes;
+  }
+
 }

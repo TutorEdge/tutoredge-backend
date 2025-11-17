@@ -113,7 +113,18 @@ export default async function tutorRoutes(app: FastifyInstance) {
             type: "object",
             properties: {
               message: { type: "string" },
-              quiz: { type: "object" }
+              quiz: {
+                type: "object",
+                properties: {
+                  id: { type: "string" },
+                  title: { type: "string" },
+                  subject: { type: "string" },
+                  class_grade: { type: "string" },
+                  description: { type: "string" },
+                  questions_count: { type: "number" },
+                  created_at: { type: "string" }
+                }
+              }
             }
           }
         }
@@ -201,4 +212,27 @@ export default async function tutorRoutes(app: FastifyInstance) {
     },
     (req, reply) => tutorController.deleteQuiz(req, reply)
   );
+
+  // Get all quizzes created by tutor
+  app.get(
+    "/tutor/quizzes",
+    {
+      preHandler: [authMiddleware, roleMiddleware(["tutor"])],
+      schema: {
+        tags: ["Tutor"],
+        summary: "Get all quizzes created by tutor",
+        querystring: {
+          type: "object",
+          properties: {
+            subject: { type: "string" },
+            class_grade: { type: "string" },
+            page: { type: "number" },
+            limit: { type: "number" }
+          }
+        }
+      }
+    },
+    (req, reply) => tutorController.getTutorQuizzes(req, reply)
+  );
+
 }
