@@ -213,56 +213,31 @@ export default async function tutorRoutes(app: FastifyInstance) {
     (req, reply) => tutorController.deleteQuiz(req, reply)
   );
 
-    // Get all quizzes created by tutor
-  app.get(
-    "/tutor/quizzes", // or "/tutor/quizzes/" if you want trailing slash
+
+  //upload study material
+  app.post(
+    "/tutor/upload-study-material",
     {
       preHandler: [authMiddleware, roleMiddleware(["tutor"])],
       schema: {
         tags: ["Tutor"],
-        summary: "Get all quizzes created by tutor",
-        querystring: {
-          type: "object",
-          properties: {
-            subject: { type: "string" },
-            class_grade: { type: "string" },
-            page: { type: "number" },
-            limit: { type: "number" }
-          }
-        },
+        summary: "Upload study material (multipart/form-data)",
+        consumes: ["multipart/form-data"],
+        body: { type: "object" }, // multipart - validation done in controller
         response: {
           200: {
             type: "object",
             properties: {
               success: { type: "boolean" },
-              data: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    id: { type: "string" },
-                    title: { type: "string" },
-                    subject: { type: "string" },
-                    class_grade: { type: "string" },
-                    due_date: { type: ["string", "null"] },
-                    total_questions: { type: "number" },
-                    status: { type: "string" }
-                  }
-                }
-              }
+              message: { type: "string" },
+              data: { type: "object" }
             }
           },
-          404: {
-            type: "object",
-            properties: {
-              success: { type: "boolean" },
-              message: { type: "string" }
-            }
-          }
+          400: { type: "object" },
+          403: { type: "object" }
         }
       }
     },
-    (req, reply) => tutorController.getTutorQuizzes(req, reply)
+    (req, reply) => tutorController.uploadStudyMaterial(req, reply)
   );
-
 }

@@ -1,8 +1,9 @@
 import Assignment from '../models/Assignment';
 import Quiz from '../models/Quiz';
 import mongoose from 'mongoose';
-import { deleteFile } from "../utils/upload";
-import { Types } from "mongoose";
+import { deleteFile } from '../utils/upload';
+import { Types } from 'mongoose';
+import StudyMaterial from '../models/StudyMaterial';
 
 export class TutorService {
   async createAssignment(payload: {
@@ -70,19 +71,19 @@ export class TutorService {
   }
 
   // delete assignment
-   async deleteAssignment(assignmentId: string, tutorId: string) {
+  async deleteAssignment(assignmentId: string, tutorId: string) {
     if (!mongoose.Types.ObjectId.isValid(assignmentId)) {
-      throw new Error("Invalid assignment ID");
+      throw new Error('Invalid assignment ID');
     }
 
     const assignment = await Assignment.findById(assignmentId);
     if (!assignment) {
-      throw new Error("Assignment not found");
+      throw new Error('Assignment not found');
     }
 
     // ownership check
     if (String(assignment.created_by) !== String(tutorId)) {
-      throw new Error("Forbidden");
+      throw new Error('Forbidden');
     }
 
     // Delete attachments from storage (if any)
@@ -98,13 +99,20 @@ export class TutorService {
         }
       }
     } catch (err) {
-      console.warn("Error deleting attachments for assignment", assignmentId, err);
+      console.warn(
+        'Error deleting attachments for assignment',
+        assignmentId,
+        err,
+      );
     }
 
     // Hard delete the assignment document
     await Assignment.findByIdAndDelete(assignmentId);
 
-    return { id: (assignment._id as Types.ObjectId).toString(), title: assignment.title };
+    return {
+      id: (assignment._id as Types.ObjectId).toString(),
+      title: assignment.title,
+    };
   }
 
   // Quiz
@@ -270,45 +278,35 @@ export class TutorService {
     };
   }
 
-    // Get tutor quizzes with filtering and pagination
-  async getTutorQuizzes(
-    tutorId: string,
-    filters: {
-      subject?: string;
-      class_grade?: string;
-      page?: number;
-      limit?: number;
-    }
-  ) {
-    const page = Math.max(1, filters.page || 1);
-    const limit = Math.max(1, Math.min(100, filters.limit || 10)); // default 10, max 100
-    const skip = (page - 1) * limit;
-
-    // Build query - only quizzes created by this tutor
-    const query: any = { created_by: tutorId };
-
-    if (filters.subject) {
-      query.subject = filters.subject;
+  //upload study material
+  async uploadStudyMaterial(payload: {
+    material_title: string;
+    subject: string;
+    class_grade: string;
+    description?: string;
+    files: {
+      filename: string;
+      url: string;
+      size?: number;
+      mimetype?: string;
+    }[];
+    share_with_all?: boolean;
+    created_by: string;
+  }) {
+    if (!payload.material_title || !payload.subject || !payload.class_grade) {
+      throw new Error('Missing required fields');
     }
 
-    if (filters.class_grade) {
-      query.class_grade = filters.class_grade;
-    }
+    const doc = await StudyMaterial.create({
+      material_title: payload.material_title,
+      subject: payload.subject,
+      class_grade: payload.class_grade,
+      description: payload.description || '',
+      files: payload.files || [],
+      share_with_all: !!payload.share_with_all,
+      created_by: new Types.ObjectId(payload.created_by),
+    });
 
-    // Get quizzes with pagination
-    const [quizzes, total] = await Promise.all([
-      Quiz.find(query)
-        .sort({ createdAt: -1 }) // newest first
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Quiz.countDocuments(query),
-    ]);
-
-    return {
-      quizzes,
-      total,
-    };
+    return doc;
   }
-
 }
