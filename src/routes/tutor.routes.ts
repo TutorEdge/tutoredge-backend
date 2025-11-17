@@ -113,7 +113,18 @@ export default async function tutorRoutes(app: FastifyInstance) {
             type: "object",
             properties: {
               message: { type: "string" },
-              quiz: { type: "object" }
+              quiz: {
+                type: "object",
+                properties: {
+                  id: { type: "string" },
+                  title: { type: "string" },
+                  subject: { type: "string" },
+                  class_grade: { type: "string" },
+                  description: { type: "string" },
+                  questions_count: { type: "number" },
+                  created_at: { type: "string" }
+                }
+              }
             }
           }
         }
