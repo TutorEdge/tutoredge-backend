@@ -309,4 +309,45 @@ export class TutorService {
 
     return doc;
   }
+
+    // Get tutor quizzes with filtering and pagination
+  async getTutorQuizzes(
+    tutorId: string,
+    filters: {
+      subject?: string;
+      class_grade?: string;
+      page?: number;
+      limit?: number;
+    }
+  ) {
+    const page = Math.max(1, filters.page || 1);
+    const limit = Math.max(1, Math.min(100, filters.limit || 10)); // default 10, max 100
+    const skip = (page - 1) * limit;
+
+    // Build query - only quizzes created by this tutor
+    const query: any = { created_by: tutorId };
+
+    if (filters.subject) {
+      query.subject = filters.subject;
+    }
+
+    if (filters.class_grade) {
+      query.class_grade = filters.class_grade;
+    }
+
+    // Get quizzes with pagination
+    const [quizzes, total] = await Promise.all([
+      Quiz.find(query)
+        .sort({ createdAt: -1 }) // newest first
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Quiz.countDocuments(query),
+    ]);
+
+    return {
+      quizzes,
+      total,
+    };
+  }
 }
