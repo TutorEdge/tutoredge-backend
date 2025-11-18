@@ -350,4 +350,46 @@ export class TutorService {
       total,
     };
   }
+
+
+  // Get tutor assignments with filtering and pagination
+  async getTutorAssignments(
+    tutorId: string,
+    filters: {
+      subject?: string;
+      class_grade?: string;
+      page?: number;
+      limit?: number;
+    }
+  ) {
+    const page = Math.max(1, filters.page || 1);
+    const limit = Math.max(1, Math.min(100, filters.limit || 10)); // default 10, max 100
+    const skip = (page - 1) * limit;
+
+    // Only assignments created by this tutor
+    const query: any = { created_by: tutorId };
+
+    if (filters.subject) {
+      query.subject = filters.subject;
+    }
+
+    if (filters.class_grade) {
+      query.class_grade = filters.class_grade;
+    }
+
+    const [assignments, total] = await Promise.all([
+      Assignment.find(query)
+        .sort({ createdAt: -1 }) // newest first
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Assignment.countDocuments(query),
+    ]);
+
+    return {
+      assignments,
+      total,
+    };
+  }
+
 }

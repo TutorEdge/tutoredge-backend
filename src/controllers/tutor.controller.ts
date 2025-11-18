@@ -689,5 +689,71 @@ export class TutorController {
     }
   }
 
+
+  // Get tutor assignments
+  async getTutorAssignments(req: FastifyRequest, reply: FastifyReply) {
+    try {
+      const user = (req as any).user;
+      if (!user || user.role !== 'tutor') {
+        return reply.status(403).send({
+          success: false,
+          message: 'Forbidden',
+        });
+      }
+
+      const query = req.query as any;
+      const subject = query.subject?.trim();
+      const class_grade = query.class_grade?.trim();
+      const page = query.page ? Number(query.page) : 1;
+      const limit = query.limit ? Number(query.limit) : 10;
+
+      const result = await tutorService.getTutorAssignments(user.id, {
+        subject,
+        class_grade,
+        page,
+        limit,
+      });
+
+      // If no assignments, return 404 as per spec
+      if (!result.assignments || result.assignments.length === 0) {
+        return reply.status(404).send({
+          success: false,
+          message: 'No assignments found for this tutor.',
+        });
+      }
+
+      // Compute status based on due_date (simple example: Active / Past Due)
+      const today = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+
+      const formattedAssignments = result.assignments.map((assignment: any) => {
+        const status =
+          assignment.due_date && assignment.due_date >= today
+            ? 'Active'
+            : 'Past Due';
+
+        return {
+          id: String(assignment._id),
+          title: assignment.title,
+          subject: assignment.subject,
+          class_grade: assignment.class_grade,
+          due_date: assignment.due_date,
+          allow_submission_online: assignment.allow_submission_online,
+          status,
+        };
+      });
+
+      return reply.status(200).send({
+        success: true,
+        data: formattedAssignments,
+      });
+    } catch (err: any) {
+      console.error('getTutorAssignments error:', err);
+      return reply.status(500).send({
+        success: false,
+        message: 'Internal Server Error',
+      });
+    }
+  }
+
   
 }
