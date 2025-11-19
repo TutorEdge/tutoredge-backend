@@ -240,4 +240,111 @@ export default async function tutorRoutes(app: FastifyInstance) {
     },
     (req, reply) => tutorController.uploadStudyMaterial(req, reply)
   );
+
+
+    // Get all quizzes created by tutor
+  app.get(
+    "/tutor/quizzes", // or "/tutor/quizzes/" if you want trailing slash
+    {
+      preHandler: [authMiddleware, roleMiddleware(["tutor"])],
+      schema: {
+        tags: ["Tutor"],
+        summary: "Get all quizzes created by tutor",
+        querystring: {
+          type: "object",
+          properties: {
+            subject: { type: "string" },
+            class_grade: { type: "string" },
+            page: { type: "number" },
+            limit: { type: "number" }
+          }
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              success: { type: "boolean" },
+              data: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    title: { type: "string" },
+                    subject: { type: "string" },
+                    class_grade: { type: "string" },
+                    due_date: { type: ["string", "null"] },
+                    total_questions: { type: "number" },
+                    status: { type: "string" }
+                  }
+                }
+              }
+            }
+          },
+          404: {
+            type: "object",
+            properties: {
+              success: { type: "boolean" },
+              message: { type: "string" }
+            }
+          }
+        }
+      }
+    },
+    (req, reply) => tutorController.getTutorQuizzes(req, reply)
+  );
+
+
+  // Get all assignments created by tutor
+  app.get(
+    "/tutor/assignments",
+    {
+      preHandler: [authMiddleware, roleMiddleware(["tutor"])],
+      schema: {
+        tags: ["Tutor"],
+        summary: "Get all assignments created by tutor",
+        querystring: {
+          type: "object",
+          properties: {
+            subject: { type: "string" },
+            class_grade: { type: "string" },
+            page: { type: "number" },
+            limit: { type: "number" }
+          }
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              success: { type: "boolean" },
+              data: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    title: { type: "string" },
+                    subject: { type: "string" },
+                    class_grade: { type: "string" },
+                    due_date: { type: "string" },
+                    allow_submission_online: { type: "boolean" },
+                    status: { type: "string" }
+                  }
+                }
+              }
+            }
+          },
+          404: {
+            type: "object",
+            properties: {
+              success: { type: "boolean" },
+              message: { type: "string" }
+            }
+          }
+        }
+      }
+    },
+    (req, reply) => tutorController.getTutorAssignments(req, reply)
+  );
+
 }
